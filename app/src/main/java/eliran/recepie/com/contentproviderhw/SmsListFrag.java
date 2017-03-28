@@ -6,8 +6,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.app.Fragment;
+import android.os.Environment;
+import android.os.StrictMode;
 import android.preference.PreferenceManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.widget.LinearLayoutManager;
@@ -20,7 +23,13 @@ import android.widget.Button;
 
 import com.google.gson.Gson;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -44,6 +53,11 @@ RecyclerView recyclerView;
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         final View view=inflater.inflate(R.layout.fragment_sms_list, container, false);
+
+
+
+        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(builder.build());
         IntentFilter intentFilter=new IntentFilter("com.recepiesearch.eliran.DONE!");
         LocalBroadcastManager.getInstance(getActivity()).registerReceiver(new SmsListener(),intentFilter);
         recyclerView= (RecyclerView) view.findViewById(R.id.SmsListRV);
@@ -54,27 +68,30 @@ RecyclerView recyclerView;
             @Override
             public void onClick(View v) {
                 ArrayList<String> StringArray=new ArrayList<String>();
-                //StringBuilder stringBuilder=new StringBuilder();
                 Gson gson=new Gson();
+
                 for (int i=0;i<AllSms.size();i++)
                 {
                    StringArray.add(gson.toJson(AllSms.get(i)));
-                    //stringBuilder.append(AllSms.get(i));
                 }
+
                 Log.d("dvfds","fsdfsd");
+
                 StringBuffer result = new StringBuffer();
+
                 for (int i = 0; i < StringArray.size(); i++) {
                     result.append( StringArray.get(i) );
-                    //result.append( optional separator );
                 }
+
                 String mynewstring = result.toString();
-               // String s=stringBuilder.toString();
-               // TinyDB tinyDB=new TinyDB(getActivity());
-               // tinyDB.putString("jsonlist",stringBuilder);
+                writeToFile(mynewstring,getActivity());
+                File filelocation = new File(Environment.getExternalStorageDirectory().getPath(), "config.txt");
+                Uri path = Uri.fromFile(filelocation);
+
                 Intent intent1=new Intent(Intent.ACTION_SEND);
                 intent1.setType("message/rfc822");
-                intent1.putExtra(Intent.EXTRA_TEXT,mynewstring);
-                getActivity().startActivity(intent1);
+                intent1.putExtra(Intent.EXTRA_STREAM,path);
+                getActivity().startActivity(Intent.createChooser(intent1, "E-mail"));
             }
         });
 
@@ -84,6 +101,45 @@ RecyclerView recyclerView;
 
 
         return view;
+    }
+    private void writeToFile(String data,Context context) {
+        try {
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(context.openFileOutput("config.txt", Context.MODE_PRIVATE));
+            outputStreamWriter.write(data);
+            outputStreamWriter.close();
+        }
+        catch (IOException e) {
+            Log.e("Exception", "File write failed: " + e.toString());
+        }
+    }
+    private String readFromFile(Context context) {
+
+        String ret = "";
+
+        try {
+            InputStream inputStream = context.openFileInput("config.txt");
+
+            if ( inputStream != null ) {
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+                BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+                String receiveString = "";
+                StringBuilder stringBuilder = new StringBuilder();
+
+                while ( (receiveString = bufferedReader.readLine()) != null ) {
+                    stringBuilder.append(receiveString);
+                }
+
+                inputStream.close();
+                ret = stringBuilder.toString();
+            }
+        }
+        catch (FileNotFoundException e) {
+            Log.e("login activity", "File not found: " + e.toString());
+        } catch (IOException e) {
+            Log.e("login activity", "Can not read file: " + e.toString());
+        }
+
+        return ret;
     }
 
 
